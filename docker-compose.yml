@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  video-intelligence-agent:
+    build: .
+    container_name: video-intelligence-agent
+    ports:
+      - "8080:8080"
+    environment:
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_REGION=${GOOGLE_CLOUD_REGION}
+      - GCS_BUCKET_NAME=${GCS_BUCKET_NAME}
+      - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-1.5-pro-vision}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL}
+      - VIDEO_ANALYSIS_INTERVAL_SECONDS=${VIDEO_ANALYSIS_INTERVAL_SECONDS:-30}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Mount service account credentials
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials/gcp-key.json:ro
+      - ${FIREBASE_CREDENTIALS_PATH}:/app/credentials/firebase-key.json:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    container_name: video-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:
